@@ -1,6 +1,8 @@
 <p align="center">
  
-  <img src="/img/fabric.png" alt="Microsoft Fabric" width="100"/>
+  <img src="/img/fabric.png" alt="Microsoft Fabric" width="90"/>
+  &nbsp;&nbsp;&nbsp;
+  <img src="/img/ai-foundry.png" alt="Foundry" width="90"/>
 </p>
 
 
