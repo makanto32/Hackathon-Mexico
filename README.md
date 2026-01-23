@@ -9,10 +9,13 @@ Al finalizar este hackathon, los participantes serán capaces de:
 - Diseñar **modelos semánticos** robustos que faciliten el consumo de datos por analistas, auditores y sistemas de inteligencia.  
 - Monitorear y optimizar el consumo de capacidad en **Fabric**, aplicando métricas clave para gobernanza operativa y eficiencia de recursos.  
 - Construir **agentes de inteligencia artificial** con **AI Foundry** para análisis predictivo, detección de fraude y generación de insights financieros.  
-- Orquestar flujos multi-agente y procesos de datos con **pipelines y triggers**, habilitando automatización inteligente en escenarios bancarios y de seguros.  
-- Aplicar **controles de seguridad y gobernanza** de datos sensibles, configurando roles, permisos y políticas en workspaces de Fabric.  
+- Orquestar flujos multi-agente y procesos de datos, habilitando automatización inteligente en escenarios bancarios y de seguros.
+- Visualizar **insights estratégicos** con **Power BI en Microsoft Fabric**, habilitando tableros interactivos para decisiones basadas en datos.
+  
+**Bonus**
+- Aplicar **controles de seguridad y gobernanza** de datos sensibles, configurando roles, permisos y políticas en workspaces de Fabric.   
 - Integrar **Microsoft Purview** para trazabilidad, clasificación y cumplimiento normativo, fortaleciendo la gobernanza de datos en entornos regulados.  
-- Visualizar **insights estratégicos** con **Power BI en Microsoft Fabric**, habilitando tableros interactivos para decisiones basadas en datos.  
+
 
 
 
@@ -25,13 +28,11 @@ Al finalizar este hackathon, los participantes serán capaces de:
 | Día 1 | Ingesta de datos desde fuentes internas y externas                      | Reto   |
 | Día 1 | Transformación de datos con notebooks y pipelines                        | Reto   |
 | Día 1 | Enriquecimiento de datos y creación de modelo semántico                  | Reto   |
-| Día 1 | Fabric Metrics: monitoreo de capacidad, consumo y rendimiento            | Demo   |
 | Día 1 | Round Table: Q&A con expertos y participantes                            | Reto   |
 | Día 1 | Cierre y resumen del día                                                 | Cierre |
 | Día 2 | Construcción de agente AI Foundry para análisis predictivo               | Reto   |
 | Día 2 | Orquestación multi-agente con pipelines y triggers                       | Reto   |
 | Día 2 | Seguridad en Fabric: roles, objetos, workspaces (opcional)               | Reto   |
-| Día 2 | Integración con Microsoft Purview: linaje, clasificación, gobernanza     | Demo   |
 | Día 2 | Sesión de valor: Q&A sobre adopción, impacto y próximos pasos            | Cierre |
 | Día 2 | Cierre y entrega de reconocimientos                                      | Cierre |
 
@@ -173,7 +174,7 @@ Finalmente, los **insights generados** se visualizarán en **tableros interactiv
 - ✅ Publicar agente para uso de analistas
  
 ### 🚀 Entregables:
-- Agente conversacional funcional en AI Foundry
+- Agente conversacional funcional en AI Foundry conectado a Data Agent de Fabric
 - Configuración de intents para preguntas de negocio frecuentes
 - Integración completa con modelo semántico de Fabric
 - Validación de respuestas en lenguaje natural
@@ -185,16 +186,15 @@ Finalmente, los **insights generados** se visualizarán en **tableros interactiv
 **📖 Escenario:** Diseñar y documentar un flujo multi-agente que coordine ingesta, análisis y ejecución para automatizar tareas complejas y adaptarse dinámicamente a escenarios cambiantes.
  
 ### 🎯 Objetivos Clave:
-- ✅ Definir tres agentes especializados (Ingesta, Análisis/Evaluación, Decisión/Ejecución)
-- ✅ Diseñar flujo orquestado con retroalimentación y manejo de errores
-- ✅ Implementar contratos de mensajes y esquemas de datos
-- ✅ Simular escenarios de negocio y validar métricas de eficacia
+- ✅ Definir tres agentes especializados [Sales Analyst, Credit Analyst, Research Analyst] y uno sintetizador [Strategy Advisor]. Puedes definirlos segun el escenario que planteaste.
+- ✅ Diseñar flujo orquestado
+- ✅ Simular escenarios de negocio y validar el comportamiento de los agentes
 - ✅ Documentar diseño para replicabilidad y escalabilidad
  
 ### 🚀 Entregables:
-- Arquitectura de tres agentes con roles definidos
-- Flujo orquestado con condiciones y retroalimentación
-- Simulación de escenarios con métricas de rendimiento
+- Arquitectura de tres agentes con roles definidos y un agente sintetizador
+- Flujo orquestado
+- Simulación de escenarios de negocio
 - Documentación completa del diseño multi-agente
  
 ---
@@ -212,5 +212,5 @@ Con estos retos completados, habrás construido una solución completa que va **
 - ✅ Pipeline de datos completo con arquitectura medallion
 - ✅ Modelo semántico robusto para análisis de negocio
 - ✅ Agentes conversacionales para democratización de datos
-- ✅ Orquestación inteligente para automatización de procesos
+- ✅ Orquestación inteligente y dinámica para automatización de procesos
 
