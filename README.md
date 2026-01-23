@@ -1,3 +1,9 @@
+<p align="center">
+ 
+  <img src="assets/img/fabric.png" alt="Microsoft Fabric" width="100"/>
+</p>
+
+
 # 🧠 AI Fabric Hackathon  
 
 ## 🎯 Objetivos del Hackathon
