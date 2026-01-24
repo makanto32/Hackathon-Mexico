@@ -18,8 +18,8 @@ Implementar un marco de gobierno de datos utilizando **Microsoft Purview Unified
 
 ### **Configuraciones previas:**
 - Lakehouse con datos de ventas y clientes (de ejercicios 1-5)
-- Microsoft Entra ID con Service Principal registrado
-- Azure Key Vault para almacenar credenciales
+- Acceso de contributor en Fabric al Managed Identity de Purview
+
 
 ---
 
