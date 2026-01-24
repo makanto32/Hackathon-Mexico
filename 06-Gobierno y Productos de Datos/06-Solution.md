@@ -27,23 +27,18 @@ Implementar un marco de gobierno de datos utilizando **Microsoft Purview Unified
 
 ### **1.1 Crear cuenta de Purview (si no existe)**
 
-**Opción A: Azure CLI**
-```bash
-# Desde Azure Portal o CLI
-az purview account create \
-  --account-name "contosoretail-purview" \
-  --resource-group "rg-contoso-retail" \
-  --location "eastus" \
-  --managed-resource-group-name "managed-rg-purview"
-```
-
-**Opción B: Portal UI**
+**Portal UI**
 1. Azure Portal → **Create Resource** → Buscar "Microsoft Purview"
 2. Fill:
-   - **Account name**: `contosoretail-purview`
-   - **Region**: East US
-   - **Managed Resource Group**: Auto-generate
-3. **Review + Create**
+   - **Subscription**: `<your-subscription`
+   - **Resource Group**: `<your-resource_group>`
+   - **Purview account name**: `contoso-retail-purview`
+   - **Loacation**: East US 2 (preferible para que tengas los workfloads de Unified Catalog)
+   - Las demás opciones las dejamos en el default
+     
+4. **Review + Create**
+
+![Purview](/img/purview-account.png)
 
 ---
 
@@ -56,6 +51,9 @@ az purview account create \
    - **Data Map** (para escaneos)
    - **Information Protection**
 
+  
+![Purview](/img/purview-account2.png)   
+
 ---
 
 ### **1.3 Crear Governance Domain**
@@ -67,57 +65,36 @@ az purview account create \
    - **Name**: `ContosoRetailDomain`
    - **Description**: "Domain for retail sales and customer data products"
    - **Type**: Data Domain
+   - **Parent**: Vacío
    - **Owner**: Asigna tu usuario
+   - **Custom Attributes**: Vacío
 3. **Create** pero **NO publiques aún** (se publicará después de crear Data Products)
+
+
+![Purview](/img/purview-account3.png) 
+
+
 
 ---
 
 ## 🗺️ PARTE 2: Registrar y Escanear Fabric como Fuente
 
-### **2.1 Configurar Service Principal en Azure** 
 
-**IMPORTANTE**: El escaneo de Lakehouse **requiere Service Principal** (Managed Identity NO es soportado para sub-artifacts).
-```bash
-# Crear App Registration
-az ad app create --display-name "purview-fabric-scanner"
-
-# Obtener Application (Client) ID
-APP_ID=$(az ad app list --display-name "purview-fabric-scanner" --query "[0].appId" -o tsv)
-echo "Application ID: $APP_ID"
-
-# Crear Service Principal
-az ad sp create --id $APP_ID
-
-# Crear Client Secret
-az ad app credential reset --id $APP_ID --append
-# Guarda el secreto generado en un lugar seguro
-```
-
-**Permisos necesarios en el App Registration:**
-1. Azure Portal → **Microsoft Entra ID** → **App registrations** → Tu app
-2. **API permissions** → **Add a permission**:
-   - **Microsoft Graph API**: 
-     - `User.Read` (Delegated)
-   - **Power BI Service**:
-     - `Tenant.Read.All` (Application)
-3. **Grant admin consent** para los permisos
-
----
-
-### **2.2 Configurar Security Group**
+### **1. Configurar Security Group**
 
 1. Azure Portal → **Microsoft Entra ID** → **Groups** → **New group**:
    - **Group type**: Security
    - **Name**: `sg-purview-fabric-readers`
    - **Description**: "Security group for Purview to scan Fabric"
    - **Members**: 
-     - Tu Service Principal: `purview-fabric-scanner`
      - Purview Managed Identity (busca por nombre de tu Purview account)
 2. **Create**
 
+![Purview](/img/purview-account7.png)
+
 ---
 
-### **2.3 Habilitar Admin APIs en Fabric**
+### **2. Habilitar Admin APIs en Fabric**
 
 1. Fabric Portal → **Settings** (⚙️) → **Admin portal** → **Tenant settings**
 2. Busca: **"Admin API settings"**
@@ -130,57 +107,35 @@ az ad app credential reset --id $APP_ID --append
 
 ⏱️ **IMPORTANTE: ESPERAR 15 minutos** antes de continuar con el registro del scan.
 
+![Purview](/img/purview-account8.png)
+
 ---
 
-### **2.4 Dar permisos al Service Principal en Workspace de Fabric**
+### **2.4 Dar permisos al Managed Identity de Purview en Workspace de Fabric**
 
 1. Fabric Portal → Navega a tu Workspace (ej. `ContosoRetailWorkspace`)
-2. Click en **⋯** (More options) → **Manage access**
+2. Click  → **Manage access**
 3. **Add people or groups**
-4. Busca tu Service Principal: `purview-fabric-scanner`
+4. Busca tu Managed Identity MSI: agrega el gruppo `sp-purview-fabric-readers` que contiene el Managed Identity
 5. Asigna rol: **Contributor** o **Admin**
 6. **Add**
 
----
-
-### **2.5 Almacenar credenciales en Key Vault**
-```bash
-# Crear Key Vault
-az keyvault create \
-  --name "kv-purview-contoso" \
-  --resource-group "rg-contoso-retail" \
-  --location "eastus"
-
-# Dar acceso a Purview Managed Identity
-PURVIEW_MSI=$(az purview account show \
-  --name "contosoretail-purview" \
-  --resource-group "rg-contoso-retail" \
-  --query "identity.principalId" -o tsv)
-
-az keyvault set-policy \
-  --name "kv-purview-contoso" \
-  --object-id $PURVIEW_MSI \
-  --secret-permissions get list
-
-# Guardar Service Principal Secret
-az keyvault secret set \
-  --vault-name "kv-purview-contoso" \
-  --name "fabric-sp-secret" \
-  --value "<PEGA_AQUI_TU_CLIENT_SECRET>"
-```
 
 ---
 
 ### **2.6 Registrar Fabric Tenant en Purview Data Map**
 
-1. Purview Portal → **Data Map** → **Sources** → **Register**
+1. Purview Portal → **Data Map** → **Data Sources** → **Register**
 2. Selecciona: **Microsoft Fabric** (same tenant)
 3. Click **Continue**
 4. **Register source**:
    - **Name**: `fabric-contoso-tenant`
-   - **Fabric Tenant ID**: (tu tenant ID de Microsoft Entra - lo encuentras en Azure Portal → Microsoft Entra ID → Overview)
-   - **Select a collection**: Crea o selecciona `ContosoData`
+   - **Fabric Tenant ID**: (auto populado -tu tenant ID de Microsoft Entra - lo encuentras en Azure Portal → Microsoft Entra ID → Overview)
+   - **Domain**: Crea un dominio de gobernanza o escoge el que esta por defecto
+   - **Select a collection**: Crea una nueva coleccion en Purview o selecciona alguna existente
 5. **Register**
+
+![Purview](/img/purview-account10.png)
 
 ---
 
@@ -188,23 +143,22 @@ az keyvault secret set \
 
 1. En tu source `fabric-contoso-tenant` → Click **New scan**
 2. **Name**: `scan-contoso-lakehouse`
-3. **Connect via integration runtime**: 
+3. **Personal workspaces**: Si quieres incluir o excluir Workspaces personales (dejalo en exclude)
+4. **Connect via integration runtime**:
    - Selecciona **Azure AutoResolveIntegrationRuntime**
-4. **Credential**: Click **+ New**
+5. **Credential**: Click **+ New**
    - **Name**: `cred-fabric-sp`
-   - **Authentication method**: **Service Principal**
+   - **Authentication method**: **Microsoft Purview MSI (system**
    - **Tenant ID**: (tu Microsoft Entra tenant ID)
-   - **Service Principal ID**: (Application/Client ID del Service Principal)
-   - **Service Principal Key**: 
-     - **Authentication method**: Select from Key Vault
-     - **Key Vault connection**: Selecciona `kv-purview-contoso`
-     - **Secret name**: `fabric-sp-secret`
+   - **Collection**: La coleccion donde pertenece el data source 
    - **Create**
-5. **Test connection** → Debe mostrar **Connection successful** ✅
+6. **Test connection** → Debe mostrar **Connection successful** ✅
+
+![Purview](/img/purview-account11.png)
+
 
 6. **Scope your scan**:
-   - En el árbol de workspaces, expande y selecciona: `ContosoRetailWorkspace`
-   - ☑️ **Include sub-artifacts** (esto escanea tablas del Lakehouse)
+   - En el árbol de workspaces, expande y selecciona: `ContosoRetailWorkspace` o tu Workspace
    
 7. **Select a scan rule set**: 
    - Usa el default: `Fabric`
@@ -215,9 +169,12 @@ az keyvault secret set \
 
 9. **Review your scan** → Verifica la configuración
 
-10. **Save and run** → Click **Run scan now**
+10. **Save and run** 
 
 ⏱️ **El scan puede tardar 5-15 minutos** dependiendo del tamaño de tu Lakehouse.
+
+![Purview](/img/purview-account12.png)
+
 
 ---
 
@@ -258,11 +215,13 @@ Classifications applied: 8
    - Tablas: `customers`, `sales`, `products`
    - Files: Archivos parquet/delta individuales
 
+![Purview](/img/purview-account13.png)
+
 ---
 
 ### **3.2 Revisar metadata de una tabla**
 
-1. Click en la tabla `customers`
+1. Click en la tabla `gold.credit_score`
 2. Explora las pestañas disponibles:
    
    **Overview**:
@@ -287,100 +246,113 @@ Classifications applied: 8
 
 ---
 
-## 🏷️ PARTE 4: Clasificación y Glosario de Negocio
+## 🏷️ PARTE 4: Glosario de Negocio y Data Products
 
-### **4.1 Crear términos en Business Glossary**
+### **4.1 Crear términos de glosario en Governance Domain**
 
-1. **Unified Catalog** → **Catalog management** → **Glossary**
-2. Click **New term** → **New glossary term**
+**Documentación oficial:** [Create and manage glossary terms](https://learn.microsoft.com/purview/unified-catalog-glossary-terms-create-manage)
+
+**Modelo actual:** Los términos de glosario se crean DENTRO de Governance Domains y se asocian a Data Products, NO directamente a data assets individuales.
+
+
+1. **Unified Catalog** → **Catalog management** → **Governance domains**
+2. Click en tu domain (nombre de tu cuenta Purview por defecto)
+3. Card **Glossary terms** → **View all** → **New term**
 
 **Término 1:**
 ```
 Name: Cliente
-Definition: Persona o entidad que realiza compras en Contoso Retail y está registrada en el sistema CRM
-Status: Approved
-Acronym: (opcional)
+Definition: Persona o entidad que realiza compras en Contoso Retail y está registrada en el CRM
+Owner: [tu usuario]
 Parent term: (ninguno)
-Related terms: (ninguno por ahora)
-Experts: [tu usuario]
-Stewards: [tu usuario]
+Next → Next → Create
 ```
-Click **Create**
 
 **Término 2:**
 ```
-Name: Venta
-Definition: Transacción comercial registrada en el sistema de ventas que incluye fecha, monto, productos y cliente asociado
-Status: Approved
-Related terms: Cliente, Producto (agregar después de crear Producto)
+Name: Venta  
+Definition: Transacción comercial que incluye fecha, monto, productos y cliente asociado
+Owner: [tu usuario]
+Next → Next → Create
 ```
 
 **Término 3:**
 ```
-Name: Suscripción Activa
-Definition: Cliente con membresía vigente en el programa de lealtad que otorga beneficios y descuentos exclusivos
-Status: Approved
-Parent term: Cliente
-```
-
-**Término 4 (opcional):**
-```
 Name: Producto
-Definition: Artículo comercializable disponible en el catálogo de Contoso Retail con SKU único
-Status: Approved
+Definition: Artículo comercializable identificado por SKU único
+Owner: [tu usuario]
+Next → Next → Create
 ```
 
----
-
-### **4.2 Asociar términos a assets**
-
-1. Regresa a **Discovery** → **Data assets** → Busca y abre la tabla `customers`
-2. En la página del asset → Click **Edit** (arriba a la derecha)
-3. Scroll down hasta la sección **Glossary terms**
-4. Click **+ Add terms**
-5. Busca y selecciona: `Cliente`
-6. **Save**
-
-**Repite el proceso para:**
-- Tabla `sales` → asocia término `Venta`
-- Tabla `products` → asocia término `Producto`
-
-**Para asociar a nivel de columna:**
-1. En la tabla `customers` → Pestaña **Schema**
-2. Click en la columna que quieres editar (ej. `customer_id`)
-3. En el panel lateral → **Glossary terms** → Add `Cliente`
-4. Para la columna `subscription_status` → Add `Suscripción Activa`
+**Estado:** Los 3 términos quedan en **Draft** (no publicados).
 
 ---
 
-### **4.3 Aplicar clasificaciones (sensitivity labels)**
+### **4.2 ⚠️ IMPORTANTE: Modelo de asociación de términos**
 
-Las clasificaciones pueden aplicarse de dos formas:
+**EN UNIFIED CATALOG:**
+- ✅ Términos → se asocian a **Data Products**
+- ✅ Data Products → contienen **Data Assets**
+- ❌ Términos NO se asocian directamente a data assets individuales
 
-#### **A. Automática (durante el scan)**
-Purview detecta automáticamente patrones como:
+**Relación correcta:**
+```
+Governance Domain
+  └── Glossary Term: "Cliente"
+       └── Data Product: "Sales Insights Product"
+            └── Data Asset: customers table
+```
+
+#### **4.3: Vinculando terminos de Glosario desde Data Products**
+
+1. En tu data product `Sales Insights Product` → Sección **Glossary terms**
+2. Click en el botón **+ (agregar términos)** junto a "Glossary terms"
+3. Se abre un panel lateral de búsqueda
+4. Buscar y seleccionar los términos:
+   - ☑️ **Cliente**
+   - ☑️ **Venta**
+   - ☑️ **Producto**
+5. Click **Add**
+
+![Purview](/img/purview-account18.png)
+
+---
+
+## **4.3 Aplicar clasificaciones (sensitivity labels) a assets**
+
+Las clasificaciones SÍ se aplican directamente a assets y columnas.
+
+#### **A. Clasificación automática (durante scan)**
+Purview detecta automáticamente:
 - Emails → `Personal.Email`
-- Números de teléfono → `Personal.PhoneNumber`
+- Teléfonos → `Personal.PhoneNumber`
 - Direcciones → `Personal.Address`
-- Códigos postales → `Personal.Location`
+- Ubicaciones → `Personal.Location`
 
-Para ver qué se detectó:
-1. Abre la tabla `customers` → Pestaña **Schema**
-2. Verás badges de clasificación en columnas relevantes
+**Verificar clasificaciones aplicadas:**
+1. **Discovery** → **Data assets** → Busca tabla `customers`
+2. Pestaña **Schema** → verás badges en columnas clasificadas
 
-#### **B. Manual**
-1. En la tabla `customers` → **Edit**
-2. Ve a la sección **Schema** o edita columnas individuales
-3. Para una columna específica (ej. `email`):
-   - **Classifications** → Click **+ Add classification**
-   - Busca: `Personal.Email`
+#### **B. Clasificación manual**
+
+1. En **Discovery** → **Data assets** → Click en tabla `credit_score`
+2. Click **Edit**
+3. En la sección **Schema**, para cada columna:
+   
+   **Columna `ssn`:**
+   - Click en el ícono de lápiz junto a la columna
+   - **Classifications** → **+ Add classification**
+   - Busca y selecciona: `US Social Security Number`
    - **Apply**
-4. Repite para otras columnas sensibles:
-   - `phone` → `Personal.PhoneNumber`
-   - `address` → `Personal.Address`
-   - `country` → `Personal.Location`
-5. **Save**
+4. **Save**
 
+**Repite para otras tablas sensibles:**
+- Tabla `transactions`: clasificar columnas de cliente
+- Tabla `products` o `business_operations`: típicamente no requiere clasificación sensible pero se puede explora
+
+
+![Purview](/img/purview-account14.png)
+  
 ---
 
 ## 🎁 PARTE 5: Crear y Publicar Data Product
@@ -389,7 +361,7 @@ Para ver qué se detectó:
 
 1. **Unified Catalog** → **Catalog management** → **Governance domains**
 2. Click en `ContosoRetailDomain`
-3. Verifica que esté en estado **Draft** (no publicado aún)
+3. Verifica que esté en estado **Draft** (no publicado aún), si no puedes colocarlo de nuevo en `Draft` para que admita cambios
 4. En la sección **Business concepts** → Click **Go to data products**
 
 ---
@@ -411,22 +383,35 @@ Proporciona una vista integrada que permite:
 - Identificación de tendencias de ventas
 - Base para modelos predictivos
 
-Use cases:
-- Dashboard ejecutivo de ventas mensuales
-- Análisis de segmentación de clientes (RFM)
-- Modelos predictivos de churn de clientes
-- Reportes de cumplimiento de metas comerciales
 
 Data quality expectations:
 - Actualización diaria
 - Latencia máxima: 24 horas
 - Completitud esperada: >95%
 
+Type: Dashboard/Reports
+
+Audience: Business User, Executive
+
 Owner: [tu usuario]
-Type: Dashboards/Reports
+
+Next:
+
+Use cases:
+- Dashboard ejecutivo de ventas mensuales
+- Análisis de segmentación de clientes (RFM)
+- Modelos predictivos de churn de clientes
+- Reportes de cumplimiento de metas comerciales
+
+Next:
+
+Custom attributes: Vacio
+
 ```
 
 3. **Create**
+
+![Purview](/img/purview-account15.png)
 
 ---
 
@@ -434,18 +419,22 @@ Type: Dashboards/Reports
 
 1. En tu data product `Sales Insights Product` → Click **Add data assets** (en la sección Assets)
 2. En el buscador:
-   - **Search**: `customers`
-   - Selecciona la tabla `customers` de tu Lakehouse
+   - **Search**: `credit_score`
+   - Selecciona la tabla `gold.credit_score` de tu Lakehouse
    - Click **Add**
 3. Repite para agregar:
-   - Tabla `sales`
-   - Tabla `products` (si existe)
+   - Tabla `business_operations`
+   - Tabla `gold.business_operations` (si existe)
    - Opcionalmente: Semantic Model de Power BI (si tienes uno publicado)
 
 **Nota**: Solo puedes agregar assets que:
 - Estén en el Data Map (ya escaneados)
 - Pertenezcan al scope de tu Governance Domain
 - Tengas permisos para ver
+
+
+![Purview](/img/purview-account16.png)
+
 
 ---
 
@@ -463,30 +452,27 @@ Type: Dashboards/Reports
 ```
 4. Click **Create**
 
-5. Agrega otro link:
-```
-   Display name: Guía de Uso del Data Product
-   Link: https://contoso.sharepoint.com/sites/data/sales-insights-guide
-   Description: Tutorial paso a paso para consumir este producto
-```
+![Purview](/img/purview-account16.png)
+
+
 
 #### **B. Agregar descripciones a los assets**
 
 1. En la sección **Data assets**, para cada asset agregado:
 
-   **Para `customers` table:**
+   **Para `credit_score` table:**
 ```
-   Descripción: Tabla dimensional con información de clientes activos y sus atributos demográficos. 
-   Incluye datos de contacto, segmentación y estatus de suscripción.
+   Descripción: Tabla con información de clientes activos y sus atributos crediticios. 
+   Incluye datos financieros, segmentación.
    Grain: Un registro por cliente único (customer_id)
    Actualización: Diaria a las 2:00 AM
 ```
 
-   **Para `sales` table:**
+   **Para `business_operations` table:**
 ```
-   Descripción: Tabla de hechos con transacciones históricas desde enero 2022.
+   Descripción: Tabla con transacciones históricas desde 2024.
    Contiene detalles de cada venta incluyendo productos, montos, descuentos y métodos de pago.
-   Grain: Un registro por línea de venta (sale_id + line_item_id)
+   Grain: Un registro por línea de venta (product__id)
    Actualización: Diaria a las 3:00 AM
 ```
 
@@ -507,19 +493,13 @@ Reason: Los usuarios necesitan acceso continuo para reportes recurrentes
 ```
 ☑️ Approval required
 Approvers: [Agrega tu usuario o un grupo de data stewards]
-☑️ Require justification from requestor
-Auto-approve threshold: None (siempre requiere aprobación)
-```
 
-**Notificaciones:**
-```
-☑️ Notify approvers when request is submitted
-☑️ Notify requestor when request is processed
 ```
 
 3. Click **Save**
+   
 
-4. (Opcional) Pestaña **Inherited policies**:
+5. (Opcional) Pestaña **Inherited policies**:
    - Aquí verás políticas heredadas del Governance Domain
    - Por ejemplo: políticas de data quality o compliance
 
@@ -536,12 +516,6 @@ Auto-approve threshold: None (siempre requiere aprobación)
    - ✅ Owner asignado
    - ✅ Descripción completa
 4. Click **Publish** (botón superior derecho)
-5. En el diálogo de confirmación:
-```
-   Publishing this domain will make all its data products discoverable 
-   by users across the organization. Continue?
-```
-6. Click **Publish**
 
 El status del domain cambiará de **Draft** → **Published** ✅
 
@@ -556,174 +530,25 @@ El status del domain cambiará de **Draft** → **Published** ✅
    - ✅ Owner asignado
    - ✅ Políticas de acceso configuradas
 3. Click **Publish** (botón superior)
-4. En el diálogo:
-```
-   Publishing this data product will make it discoverable and requestable 
-   by users in your organization. Continue?
-```
-5. Click **Publish**
 
 El status del producto cambiará a **Published** ✅
 
 ---
 
-## ✅ PARTE 6: Validación del Gobierno
 
-### **6.1 Buscar Data Product como usuario final**
 
-**Simula la experiencia de un data consumer:**
 
-1. Abre una ventana de incógnito o usa otro perfil
-2. Ve a **Unified Catalog** → **Discovery** → **Data products**
-3. Aplica filtros:
-   - **Governance domain**: ContosoRetailDomain
-   - **Type**: Dashboards/Reports
-4. Deberías ver: `Sales Insights Product` en los resultados
-5. Click en el producto → Explora:
-   - **Description** y **use cases** claros
-   - **Data assets** listados con descripciones
-   - **Documentation** links accesibles
-   - Botón **Request access** visible
-
----
-
-### **6.2 Verificar linaje (Data Lineage)**
-
-1. Ve a **Discovery** → **Data assets** → Busca la tabla `sales`
-2. Click en la tabla → Pestaña **Lineage**
-3. Deberías ver un diagrama que muestra:
-
-**Upstream (origen):**
-- Archivos parquet en Lakehouse
-- Pipelines de ingesta (si los configuraste)
-- Fuentes externas conectadas
-
-**Downstream (consumo):**
-- Data Product: `Sales Insights Product`
-- Semantic Models de Power BI (si existen)
-- Notebooks de Spark (si están conectados)
-
-**Nota**: El linaje completo requiere que hayas creado pipelines o dataflows con linaje tracking habilitado. Si acabas de cargar datos manualmente, el linaje puede ser limitado.
-
-**Para linaje más robusto (opcional):**
-- Crea un pipeline en Data Factory que copie datos al Lakehouse
-- Purview capturará automáticamente el linaje source → pipeline → lakehouse
-- También captura transformaciones en Dataflow Gen2
-
----
-
-### **6.3 Simular solicitud de acceso**
-
-**Como data consumer (requester):**
-
-1. Navega al data product `Sales Insights Product`
-2. Click **Request access** (botón superior derecho)
-3. Fill el formulario:
-```
-   Justification: 
-   Necesito acceso a los datos de ventas y clientes para crear el reporte 
-   mensual de desempeño comercial para el equipo de Marketing.
-   
-   Duration: 90 days
-   
-   Additional information:
-   El reporte será compartido solo con el equipo ejecutivo y cumple con 
-   las políticas de privacidad de datos de clientes.
-```
-4. Click **Submit request**
-5. Verás una confirmación: "Access request submitted successfully"
-
-**Como data product owner (approver):**
-
-1. Ve a **Unified Catalog** → **Data products** → Tu producto
-2. O directamente a **Catalog management** → **Requests**
-3. Verás la solicitud pendiente:
-```
-   Requester: [nombre del usuario]
-   Data product: Sales Insights Product
-   Justification: [la justificación proporcionada]
-   Requested date: [fecha]
-   Status: Pending approval
-```
-4. Click en la solicitud → **Review**
-5. Opciones:
-   - **Approve** → El usuario obtiene acceso por 90 días
-   - **Deny** → Proporciona una razón para el rechazo
-6. Si apruebas, el usuario recibirá una notificación por email
-
----
-
-### **6.4 Verificar acceso desde Fabric**
-
-Una vez aprobado el acceso:
-
-1. El usuario puede ir a Fabric → OneLake Data Hub
-2. Buscar: `Sales Insights Product` o los assets individuales
-3. Los assets ahora estarán visibles y accesibles
-4. Puede crear nuevos reports/notebooks usando estos datos
-
-**Validar permisos:**
-```python
-# En un Notebook de Fabric
-from pyspark.sql import SparkSession
-
-# Intentar leer la tabla customers
-df = spark.read.table("Contoso_Sales_Lakehouse.customers")
-df.show(5)
-
-# Si el acceso fue aprobado, debe funcionar sin errores
-```
-
----
-
-### **6.5 Generar informe resumen**
-
-Documenta los resultados de tu implementación:
-
-#### **Métricas de Catalogación**
-
-| **Categoría** | **Métrica** | **Valor** |
-|---|---|---|
-| **Assets Catalogados** | Total de assets | 15 |
-| | Lakehouses | 1 |
-| | Tablas | 3 |
-| | Archivos | 11 |
-| **Clasificaciones** | Columnas clasificadas | 8 |
-| | Personal.Email | 2 |
-| | Personal.PhoneNumber | 1 |
-| | Personal.Location | 3 |
-| | Personal.Address | 2 |
-| **Glosario** | Términos creados | 4 |
-| | Términos asociados a assets | 12 asociaciones |
-| **Governance** | Governance Domains | 1 (Published) |
-| | Data Products | 1 (Published) |
-| | Assets en Data Products | 3 tablas |
-| **Políticas** | Access policies activas | 1 |
-| | Approval required | Yes |
-| | Access time limit | 365 days |
-| **Solicitudes** | Access requests procesadas | 1 (Approved) |
-
-#### **Hallazgos de Data Quality (si configuraste scans)**
-
-| **Asset** | **Completitud** | **Issues** | **Status** |
-|---|---|---|---|
-| customers table | 98% | 12 null emails | ⚠️ Needs attention |
-| sales table | 100% | None | ✅ Good |
-| products table | 95% | 3 missing descriptions | ⚠️ Needs attention |
-
----
 
 ## 🎯 Resultado Final Alcanzado
 
 Al completar este ejercicio, has logrado:
 
-✅ **Catalogación automatizada**: 15 assets de Fabric visibles en Purview Data Map  
+✅ **Catalogación automatizada**: assets de Fabric visibles en Purview Data Map  
 ✅ **Data Product gobernado**: `Sales Insights Product` publicado con documentación completa  
-✅ **Glosario de negocio**: 4 términos de negocio vinculados a 12 assets  
-✅ **Clasificación de datos sensibles**: 8 columnas con etiquetas de privacidad aplicadas  
+✅ **Glosario de negocio**: términos de negocio vinculados a 12 assets  
+✅ **Clasificación de datos sensibles**: columnas con etiquetas de privacidad aplicadas  
 ✅ **Linaje de datos**: Trazabilidad desde Lakehouse hasta productos de consumo  
 ✅ **Gobierno federado**: Workflow de solicitud y aprobación de acceso funcional  
-✅ **Seguridad**: Autenticación con Service Principal y almacenamiento seguro en Key Vault  
 ✅ **Discoverability**: Data products buscables y consumibles por toda la organización  
 
 ---
