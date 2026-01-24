@@ -452,7 +452,7 @@ Custom attributes: Vacio
 ```
 4. Click **Create**
 
-![Purview](/img/purview-account16.png)
+![Purview](/img/purview-account17.png)
 
 
 
